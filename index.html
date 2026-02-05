@@ -182,6 +182,9 @@
         portfolio: null,
         alerts: null,
         settings: null,
+        meta: null,            // <-- NEW
+        saving: false,         // <-- NEW
+        saveMsg: "",           // <-- NEW
         debug: "",
       };
 
@@ -210,7 +213,7 @@
         document.getElementById("status").textContent = tg ? "Running inside Telegram ✅" : "Not inside Telegram ❌";
       }
 
-      async function callApi(path) {
+      async function callApi(path, opts = {}) {
         if (!tg) throw new Error("Open this inside Telegram as a Mini App.");
 
         tg.ready();
@@ -219,12 +222,25 @@
         const initData = tg.initData;
         if (!initData) throw new Error("No initData. Open via Bot menu button / configured Mini App.");
 
+        const method = (opts.method || "GET").toUpperCase();
+        const headers = {
+          "X-Telegram-Init-Data": initData,
+        };
+
+        let body;
+        if (opts.body !== undefined) {
+          headers["Content-Type"] = "application/json";
+          body = JSON.stringify(opts.body);
+        }
+
         const res = await fetch("https://api.byteandblock.com" + path, {
-          headers: { "X-Telegram-Init-Data": initData },
+          method,
+          headers,
+          body,
         });
 
         const text = await res.text();
-        state.debug = `GET ${path}\nHTTP ${res.status}\n\n${text}`;
+        state.debug = `${method} ${path}\nHTTP ${res.status}\n\n${text}`;
 
         if (!res.ok) throw new Error(`HTTP ${res.status}\n\n${text}`);
 
@@ -233,6 +249,14 @@
         } catch {
           throw new Error("API returned non-JSON:\n\n" + text);
         }
+      }
+
+      async function callPublic(path) {
+        const res = await fetch("https://api.byteandblock.com" + path);
+        const text = await res.text();
+        state.debug = `GET ${path}\nHTTP ${res.status}\n\n${text}`;
+        if (!res.ok) throw new Error(`HTTP ${res.status}\n\n${text}`);
+        return JSON.parse(text);
       }
 
       function render() {
@@ -397,24 +421,80 @@
 
       function renderSettings(root) {
         const s = state.settings?.settings;
+        const meta = state.meta;
+
         if (!s) {
           root.appendChild(card("No settings loaded.", "Tap Refresh data."));
           return;
         }
 
+        const currencies = meta?.supportedCurrencies || ["USD"];
+        const exchanges = meta?.supportedExchanges || ["binance"];
+
+        const currentCurrency = s.currency || "USD";
+        const currentExchange = s.exchange || "binance";
+
         const c = document.createElement("div");
         c.className = "card";
+
         c.innerHTML = `
           <div class="title">Settings</div>
-          <div class="sub">Read-only for now (we’ll add save buttons later).</div>
-          <div class="kv">
-            <div class="muted">Currency</div><div>${escapeHtml(s.currency || "USD")}</div>
-            <div class="muted">Exchange</div><div>${escapeHtml(s.exchange || "binance")}</div>
+          <div class="sub">Change currency/exchange and tap Save.</div>
+
+          <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:160px;">
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Currency</div>
+              <select id="currencySel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+                ${currencies.map(x => `<option value="${escapeHtml(x)}"${x === currentCurrency ? " selected" : ""}>${escapeHtml(x)}</option>`).join("")}
+              </select>
+            </div>
+
+            <div style="flex:1; min-width:160px;">
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Exchange</div>
+              <select id="exchangeSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+                ${exchanges.map(x => `<option value="${escapeHtml(x)}"${x === currentExchange ? " selected" : ""}>${escapeHtml(x)}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+            <button class="btn" id="saveSettingsBtn" ${state.saving ? "disabled" : ""} style="width:auto; padding:10px 14px;">
+              ${state.saving ? "Saving…" : "Save"}
+            </button>
+            <div class="muted" id="saveMsg" style="font-size:13px;">${escapeHtml(state.saveMsg || "")}</div>
           </div>
         `;
+
         root.appendChild(c);
 
-        root.appendChild(card("Next", "We’ll add dropdowns + Save that call POST endpoints (without touching bot logic)."));
+        // Wire up Save button
+        const btn = c.querySelector("#saveSettingsBtn");
+        btn.addEventListener("click", async () => {
+          const currency = c.querySelector("#currencySel").value;
+          const exchange = c.querySelector("#exchangeSel").value;
+
+          state.saving = true;
+          state.saveMsg = "";
+          render();
+
+          try {
+            // POST to your API (server must support this route)
+            await callApi("/api/settings", {
+              method: "POST",
+              body: { currency, exchange },
+            });
+
+            // re-fetch so UI reflects saved state
+            state.settings = await callApi("/api/settings");
+
+            state.saveMsg = "Saved ✅";
+          } catch (e) {
+            state.saveMsg = "Save failed ❌ (check Debug tab)";
+          } finally {
+            state.saving = false;
+            render();
+          }
+        });
       }
 
       function renderDebug(root) {
@@ -455,6 +535,7 @@
           document.getElementById("uid").textContent = me?.user?.id ?? "—";
 
           // Load settings first (for currency display)
+          state.meta = await callPublic("/api/meta");
           state.settings = await callApi("/api/settings");
           state.portfolio = await callApi("/api/portfolio/enriched");
           state.alerts = await callApi("/api/alerts");
