@@ -311,6 +311,10 @@
         for (const a of data) {
           const sym = a.tokenSymbol || "—";
           const mode = a.mode || "—";
+          const modeLabel =
+            mode === "volatility" ? "Volatility" :
+            mode === "newsvol" ? "News + Volatility" :
+            mode;
           const target = (a.target != null) ? a.target : "—";
           const window = a.window || "—";
           const currency = a.currency || (state.settings?.settings?.currency ?? "USD");
@@ -351,7 +355,7 @@
             </div>
 
             <div class="kv">
-              <div class="muted">Type</div><div>${escapeHtml(mode)}</div>
+              <div class="muted">Type</div><div>${escapeHtml(modeLabel)}</div>
               <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
               <div class="muted">Created</div><div>${escapeHtml(created)}</div>
             </div>
