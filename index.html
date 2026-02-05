@@ -433,7 +433,7 @@
           del.style.marginTop = "10px";
           del.textContent = "Delete";
           del.addEventListener("click", async () => {
-            await deleteApi(`/api/z(alerts/${a.id}`); // <-- replace Z with nothing
+            await deleteApi(`/api/alerts/${a.id}`); // <-- replace Z with nothing
             state.alerts = await callApi("/api/alerts");
             render();
           });
@@ -481,32 +481,35 @@
         c.className = "card";
 
         c.innerHTML = `
-          <div class="title">Settings</div>
-          <div class="sub">Change currency/exchange and tap Save.</div>
-
-          <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-            <div style="flex:1; min-width:160px;">
-              <div class="muted" style="font-size:13px; margin-bottom:6px;">Currency</div>
-              <select id="currencySel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
-                ${currencies.map(x => `<option value="${escapeHtml(x)}"${x === currentCurrency ? " selected" : ""}>${escapeHtml(x)}</option>`).join("")}
-              </select>
+          <div class="row">
+            <div>
+              <div class="title">🔔 ${escapeHtml(headline)}</div>
+              <div class="sub">${escapeHtml(line)}</div>
             </div>
-
-            <div style="flex:1; min-width:160px;">
-              <div class="muted" style="font-size:13px; margin-bottom:6px;">Exchange</div>
-              <select id="exchangeSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
-                ${exchanges.map(x => `<option value="${escapeHtml(x)}"${x === currentExchange ? " selected" : ""}>${escapeHtml(x)}</option>`).join("")}
-              </select>
+            <div style="text-align:right;">
+              <div style="font-weight:800;">${escapeHtml(String(target))}%</div>
+              <div class="sub">${escapeHtml(window)}</div>
             </div>
           </div>
 
-          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
-            <button class="btn" id="saveSettingsBtn" ${state.saving ? "disabled" : ""} style="width:auto; padding:10px 14px;">
-              ${state.saving ? "Saving…" : "Save"}
-            </button>
-            <div class="muted" id="saveMsg" style="font-size:13px;">${escapeHtml(state.saveMsg || "")}</div>
+          <div class="kv">
+            <div class="muted">Type</div><div>${escapeHtml(modeLabel)}</div>
+            <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
+            <div class="muted">Created</div><div>${escapeHtml(created)}</div>
           </div>
         `;
+
+        // now append Delete AFTER innerHTML
+        const del = document.createElement("button");
+        del.className = "btn";
+        del.style.marginTop = "10px";
+        del.textContent = "Delete";
+        del.addEventListener("click", async () => {
+          await deleteApi(`/api/alerts/${a.id}`);
+          state.alerts = await callApi("/api/alerts");
+          render();
+        });
+        c.appendChild(del);
 
         root.appendChild(c);
 
