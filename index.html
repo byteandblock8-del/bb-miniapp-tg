@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Byte & Block Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      body { font-family: system-ui, -apple-system, sans-serif; padding: 16px; }
+      .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-top: 12px; }
+      pre { white-space: pre-wrap; word-break: break-word; }
+      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <h2>Byte & Block Mini App</h2>
+    <div class="card">
+      <div><b>Status:</b> <span id="status">Loading…</span></div>
+      <div><b>Platform:</b> <span id="platform"></span></div>
+    </div>
+
+    <div class="card">
+      <button id="btn">Call /api/me</button>
+      <pre id="out"></pre>
+    </div>
+
+    <script>
+      const tg = window.Telegram?.WebApp;
+
+      document.getElementById("platform").textContent = tg ? tg.platform : "(not in Telegram)";
+      document.getElementById("status").textContent = tg ? "Running inside Telegram ✅" : "Not inside Telegram ❌";
+
+      async function callMe() {
+        const out = document.getElementById("out");
+
+        if (!tg) {
+          out.textContent = "Open this inside Telegram (as a Mini App) to get initData.";
+          return;
+        }
+
+        // Make Telegram UI behave nicely
+        tg.ready();
+        tg.expand();
+
+        const initData = tg.initData; // signed string
+        if (!initData) {
+          out.textContent = "No initData available. Are you opening this as a Mini App?";
+          return;
+        }
+
+        out.textContent = "Calling API…";
+
+        const res = await fetch("https://api.byteandblock.com/api/me", {
+          headers: {
+            "X-Telegram-Init-Data": initData,
+          },
+        });
+
+        const text = await res.text();
+        out.textContent = `HTTP ${res.status}\n\n${text}`;
+      }
+
+      document.getElementById("btn").addEventListener("click", callMe);
+    </script>
+  </body>
+</html>
