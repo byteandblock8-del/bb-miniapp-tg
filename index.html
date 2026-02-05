@@ -142,6 +142,16 @@
         padding: 10px;
         margin-top: 10px;
       }
+
+      .input-invalid {
+        border-color: #ef4444 !important;
+      }
+
+      .hint {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
     </style>
   </head>
 
@@ -391,6 +401,8 @@
         const data = state.alerts?.alerts || [];
         const settings = state.settings?.settings || {};
         const currencyDefault = settings.currency || "USD";
+        const meta = state.meta || {};
+        const currencies = meta.supportedCurrencies || [currencyDefault];
 
         // --- Create form card ---
         const form = document.createElement("div");
@@ -413,6 +425,7 @@
                 placeholder="BTC"
                 style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
               />
+              <div class="hint">Examples: BTC, ETH, SOL</div>
             </div>
 
             <div>
@@ -452,11 +465,19 @@
 
             <div>
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Currency</div>
-              <input
-                id="currencyInp"
-                value="${escapeHtml(currencyDefault)}"
+              <select
+                id="currencySel"
                 style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
-              />
+              >
+                ${currencies
+                  .map(
+                    (c) =>
+                      `<option value="${escapeHtml(c)}"${
+                        c === currencyDefault ? " selected" : ""
+                      }>${escapeHtml(c)}</option>`
+                  )
+                  .join("")}
+              </select>
             </div>
           </div>
 
@@ -470,16 +491,23 @@
 
         root.appendChild(form);
 
+        form.querySelector("#tokenSymInp").addEventListener("input", () => {
+          form.querySelector("#tokenSymInp").classList.remove("input-invalid");
+        });
+
         // Wire create
         form.querySelector("#createAlertBtn").addEventListener("click", async () => {
           const tokenSymbol = form.querySelector("#tokenSymInp").value.trim().toUpperCase();
+          const symEl = form.querySelector("#tokenSymInp");
+          symEl.classList.remove("input-invalid");
           const mode = form.querySelector("#modeSel").value;
           const window = form.querySelector("#windowSel").value;
           const target = Number(form.querySelector("#targetInp").value || 5);
-          const currency = form.querySelector("#currencyInp").value.trim().toUpperCase() || "USD";
+          const currency = form.querySelector("#currencySel").value;
 
           // Symbol must be short ticker-like (prevents "SOLANA", "BITCOIN", etc.)
-          if (!/^[A-Z0-9]{2,5}$/.test(tokenSymbol)) {
+          if (!/^[A-Z0-9]{2,10}$/.test(tokenSymbol)) {
+            symEl.classList.add("input-invalid");
             state.alertMsg = "Enter a valid symbol (BTC, ETH, SOL)";
             render();
             return;
