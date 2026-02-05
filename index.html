@@ -388,51 +388,28 @@
       function renderAlerts(root) {
         const data = state.alerts?.alerts;
 
-        if (!data || !Array.isArray(data) || data.length === 0) {
-          root.appendChild(card("No alerts configured.", "Use /alert in the bot for now. We'll add UI actions later."));
+        if (!Array.isArray(data) || data.length === 0) {
+          root.appendChild(card("No alerts configured.", "Use /alert in the bot for now."));
           return;
         }
 
-        // New: pretty cards
         for (const a of data) {
           const sym = a.tokenSymbol || "—";
           const mode = a.mode || "—";
-          const modeLabel =
-            mode === "volatility" ? "Volatility" :
-            mode === "newsvol" ? "News + Volatility" :
-            mode;
           const target = (a.target != null) ? a.target : "—";
           const window = a.window || "—";
           const currency = a.currency || (state.settings?.settings?.currency ?? "USD");
-
-          let headline = `Alert for ${sym}`;
-          let line = "";
-
-          if (mode === "newsvol") {
-            line = `${sym} moves more than ${target}% in ${window} with a news spike`;
-          } else if (mode === "volatility") {
-            line = `${sym} moves more than ${target}% in ${window}`;
-          } else if (mode === "price") {
-            // if you ever add price alerts later
-            line = `${sym} price alert (${currency})`;
-          } else if (mode === "percent") {
-            line = `${sym} percent alert`;
-          } else if (mode === "range") {
-            line = `${sym} range alert (${currency})`;
-          } else {
-            line = `${sym} alert (${mode})`;
-          }
-
           const created = a.createdAt ? new Date(a.createdAt).toLocaleString() : "—";
 
           const c = document.createElement("div");
           c.className = "card";
 
+          // 1) set innerHTML FIRST
           c.innerHTML = `
             <div class="row">
               <div>
-                <div class="title">🔔 ${escapeHtml(headline)}</div>
-                <div class="sub">${escapeHtml(line)}</div>
+                <div class="title">🔔 Alert for ${escapeHtml(sym)}</div>
+                <div class="sub">${escapeHtml(sym)} moves more than ${escapeHtml(String(target))}% in ${escapeHtml(window)}</div>
               </div>
               <div style="text-align:right;">
                 <div style="font-weight:800;">${escapeHtml(String(target))}%</div>
@@ -441,28 +418,33 @@
             </div>
 
             <div class="kv">
-              <div class="muted">Type</div><div>${escapeHtml(modeLabel)}</div>
+              <div class="muted">Type</div><div>${escapeHtml(mode)}</div>
               <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
               <div class="muted">Created</div><div>${escapeHtml(created)}</div>
             </div>
           `;
 
+          // 2) THEN append the button
           const del = document.createElement("button");
           del.className = "btn";
           del.style.marginTop = "10px";
           del.textContent = "Delete";
+
           del.addEventListener("click", async () => {
+            state.debug = `DELETE /api/alerts/${a.id}\n(click received)`;
+            render(); // so you can see immediately that the click fired
+
             try {
               await callApi(`/api/alerts/${a.id}`, { method: "DELETE" });
               state.alerts = await callApi("/api/alerts");
               render();
             } catch (e) {
-              state.saveMsg = "Delete failed ❌ (check Debug tab)";
+              state.debug += `\n\nDelete failed:\n${e?.message || e}`;
               render();
             }
           });
-          c.appendChild(del);
 
+          c.appendChild(del);
           root.appendChild(c);
         }
       }
