@@ -428,17 +428,6 @@
           const c = document.createElement("div");
           c.className = "card";
 
-          const del = document.createElement("button");
-          del.className = "btn";
-          del.style.marginTop = "10px";
-          del.textContent = "Delete";
-          del.addEventListener("click", async () => {
-            await deleteApi(`/api/alerts/${a.id}`); // <-- replace Z with nothing
-            state.alerts = await callApi("/api/alerts");
-            render();
-          });
-          c.appendChild(del);
-
           c.innerHTML = `
             <div class="row">
               <div>
@@ -457,6 +446,17 @@
               <div class="muted">Created</div><div>${escapeHtml(created)}</div>
             </div>
           `;
+
+          const del = document.createElement("button");
+          del.className = "btn";
+          del.style.marginTop = "10px";
+          del.textContent = "Delete";
+          del.addEventListener("click", async () => {
+            await deleteApi(`/api/alerts/${a.id}`);
+            state.alerts = await callApi("/api/alerts");
+            render();
+          });
+          c.appendChild(del);
 
           root.appendChild(c);
         }
@@ -481,41 +481,55 @@
         c.className = "card";
 
         c.innerHTML = `
-          <div class="row">
-            <div>
-              <div class="title">🔔 ${escapeHtml(headline)}</div>
-              <div class="sub">${escapeHtml(line)}</div>
+          <div class="title">Settings</div>
+          <div class="sub">Change currency/exchange and tap Save.</div>
+
+          <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:160px;">
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Currency</div>
+              <select id="currencySel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+                ${currencies
+                  .map(
+                    (x) =>
+                      `<option value="${escapeHtml(x)}"${
+                        x === currentCurrency ? " selected" : ""
+                      }>${escapeHtml(x)}</option>`
+                  )
+                  .join("")}
+              </select>
             </div>
-            <div style="text-align:right;">
-              <div style="font-weight:800;">${escapeHtml(String(target))}%</div>
-              <div class="sub">${escapeHtml(window)}</div>
+
+            <div style="flex:1; min-width:160px;">
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Exchange</div>
+              <select id="exchangeSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+                ${exchanges
+                  .map(
+                    (x) =>
+                      `<option value="${escapeHtml(x)}"${
+                        x === currentExchange ? " selected" : ""
+                      }>${escapeHtml(x)}</option>`
+                  )
+                  .join("")}
+              </select>
             </div>
           </div>
 
-          <div class="kv">
-            <div class="muted">Type</div><div>${escapeHtml(modeLabel)}</div>
-            <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
-            <div class="muted">Created</div><div>${escapeHtml(created)}</div>
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+            <button class="btn" id="saveSettingsBtn" ${
+              state.saving ? "disabled" : ""
+            } style="width:auto; padding:10px 14px;">
+              ${state.saving ? "Saving…" : "Save"}
+            </button>
+            <div class="muted" id="saveMsg" style="font-size:13px;">${escapeHtml(
+              state.saveMsg || ""
+            )}</div>
           </div>
         `;
 
-        // now append Delete AFTER innerHTML
-        const del = document.createElement("button");
-        del.className = "btn";
-        del.style.marginTop = "10px";
-        del.textContent = "Delete";
-        del.addEventListener("click", async () => {
-          await deleteApi(`/api/alerts/${a.id}`);
-          state.alerts = await callApi("/api/alerts");
-          render();
-        });
-        c.appendChild(del);
-
         root.appendChild(c);
 
-        // Wire up Save button
-        const btn = c.querySelector("#saveSettingsBtn");
-        btn.addEventListener("click", async () => {
+        // Wire up Save
+        c.querySelector("#saveSettingsBtn").addEventListener("click", async () => {
           const currency = c.querySelector("#currencySel").value;
           const exchange = c.querySelector("#exchangeSel").value;
 
@@ -524,15 +538,12 @@
           render();
 
           try {
-            // POST to your API (server must support this route)
             await callApi("/api/settings", {
               method: "POST",
               body: { currency, exchange },
             });
 
-            // re-fetch so UI reflects saved state
             state.settings = await callApi("/api/settings");
-
             state.saveMsg = "Saved ✅";
           } catch (e) {
             state.saveMsg = "Save failed ❌ (check Debug tab)";
