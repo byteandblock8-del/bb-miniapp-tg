@@ -251,50 +251,80 @@
       }
 
       function renderPortfolio(root) {
-        const data = state.portfolio?.portfolio;
+        const payload = state.portfolio;
+        const positions = payload?.positions;
+        const totals = payload?.totals;
+        const currency = payload?.currency || (state.settings?.settings?.currency ?? "USD");
 
-        if (!data) {
-          root.appendChild(card("No portfolio data yet.", "Tap Refresh data."));
-          return;
-        }
-
-        if (!Array.isArray(data) || data.length === 0) {
+        if (!positions || !Array.isArray(positions) || positions.length === 0) {
           root.appendChild(card("Portfolio is empty.", "Use your bot to /add positions for now."));
           return;
         }
 
-        // Show each position as a card
-        for (const p of data) {
+        // Totals card
+        const totalCard = document.createElement("div");
+        totalCard.className = "card";
+
+        const pnlAbs = Number(totals?.pnlAbs) || 0;
+        const pnlPct = Number(totals?.pnlPct) || 0;
+
+        totalCard.innerHTML = `
+          <div class="row">
+            <div>
+              <div class="title">Portfolio total</div>
+              <div class="sub">Live value + PnL (CoinGecko)</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:900;">${fmtMoney(Number(totals?.value) || 0, currency)}</div>
+              <div class="sub">${pnlAbs >= 0 ? "🟢" : "🔴"} ${fmtMoney(pnlAbs, currency)} (${pnlPct.toFixed(2)}%)</div>
+            </div>
+          </div>
+        `;
+        root.appendChild(totalCard);
+
+        // Position cards
+        for (const p of positions) {
           const name = p.name || p.symbol || "Unknown";
           const symbol = p.symbol ? `(${p.symbol})` : "";
-          const currency = p.currency || (state.settings?.settings?.currency ?? "USD");
+          const amount = Number(p.amount) || 0;
+
+          const currentPrice = p.currentPrice;
+          const value = p.value;
+          const posPnlAbs = p.pnlAbs;
+          const posPnlPct = p.pnlPct;
 
           const c = document.createElement("div");
           c.className = "card";
 
-          const head = document.createElement("div");
-          head.className = "row";
-          head.innerHTML = `
-            <div>
-              <div class="title">${escapeHtml(name)} ${escapeHtml(symbol)}</div>
-              <div class="sub">Token ID: ${escapeHtml(p.tokenId || "—")}</div>
+          const rightTop = (value != null) ? fmtMoney(value, currency) : "—";
+          const rightMid = (currentPrice != null) ? fmtMoney(currentPrice, currency) : "—";
+
+          let pnlLine = "—";
+          if (posPnlAbs != null && posPnlPct != null) {
+            const sign = posPnlAbs >= 0 ? "🟢" : "🔴";
+            pnlLine = `${sign} ${fmtMoney(posPnlAbs, currency)} (${Number(posPnlPct).toFixed(2)}%)`;
+          }
+
+          c.innerHTML = `
+            <div class="row">
+              <div>
+                <div class="title">${escapeHtml(name)} ${escapeHtml(symbol)}</div>
+                <div class="sub">Token ID: ${escapeHtml(p.tokenId || "—")}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:900;">${rightTop}</div>
+                <div class="sub">${pnlLine}</div>
+              </div>
             </div>
-            <div style="text-align:right;">
-              <div style="font-weight:800;">${fmtNumber(p.amount, 6)}</div>
-              <div class="sub">amount</div>
+
+            <div class="kv">
+              <div class="muted">Amount</div><div>${fmtNumber(amount, 6)}</div>
+              <div class="muted">Avg entry</div><div>${fmtMoney(Number(p.avgEntry) || 0, currency)}</div>
+              <div class="muted">Current price</div><div>${rightMid}</div>
+              <div class="muted">24h change</div><div>${(Number(p.change24h) || 0).toFixed(2)}%</div>
             </div>
           `;
 
-          const kv = document.createElement("div");
-          kv.className = "kv";
-          kv.innerHTML = `
-            <div class="muted">Avg entry</div><div>${fmtMoney(p.avgEntry, currency)}</div>
-            <div class="muted">Entry price</div><div>${fmtMoney(p.entryPrice, currency)}</div>
-            <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
-          `;
-
-          c.appendChild(head);
-          c.appendChild(kv);
           root.appendChild(c);
         }
       }
@@ -426,7 +456,7 @@
 
           // Load settings first (for currency display)
           state.settings = await callApi("/api/settings");
-          state.portfolio = await callApi("/api/portfolio");
+          state.portfolio = await callApi("/api/portfolio/enriched");
           state.alerts = await callApi("/api/alerts");
 
           btn.textContent = "Refresh data";
