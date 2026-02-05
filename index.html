@@ -302,32 +302,63 @@
       function renderAlerts(root) {
         const data = state.alerts?.alerts;
 
-        // Your screenshot shows alerts: {} (object), not []
-        // We'll support both shapes.
-        const isEmptyObject = data && typeof data === "object" && !Array.isArray(data) && Object.keys(data).length === 0;
-
-        if (!data || isEmptyObject || (Array.isArray(data) && data.length === 0)) {
+        if (!data || !Array.isArray(data) || data.length === 0) {
           root.appendChild(card("No alerts configured.", "Use /alert in the bot for now. We'll add UI actions later."));
           return;
         }
 
-        // If alerts come as array, show each
-        if (Array.isArray(data)) {
-          for (const a of data) {
-            root.appendChild(card("Alert", JSON.stringify(a)));
-          }
-          return;
-        }
+        // New: pretty cards
+        for (const a of data) {
+          const sym = a.tokenSymbol || "—";
+          const mode = a.mode || "—";
+          const target = (a.target != null) ? a.target : "—";
+          const window = a.window || "—";
+          const currency = a.currency || (state.settings?.settings?.currency ?? "USD");
 
-        // If alerts come as object map, show keys
-        const c = document.createElement("div");
-        c.className = "card";
-        c.innerHTML = `<div class="title">Alerts (raw map)</div><div class="sub">We’ll format these once we confirm the exact structure.</div>`;
-        const pre = document.createElement("div");
-        pre.className = "code";
-        pre.textContent = JSON.stringify(data, null, 2);
-        c.appendChild(pre);
-        root.appendChild(c);
+          let headline = `Alert for ${sym}`;
+          let line = "";
+
+          if (mode === "newsvol") {
+            line = `${sym} moves more than ${target}% in ${window} with a news spike`;
+          } else if (mode === "volatility") {
+            line = `${sym} moves more than ${target}% in ${window}`;
+          } else if (mode === "price") {
+            // if you ever add price alerts later
+            line = `${sym} price alert (${currency})`;
+          } else if (mode === "percent") {
+            line = `${sym} percent alert`;
+          } else if (mode === "range") {
+            line = `${sym} range alert (${currency})`;
+          } else {
+            line = `${sym} alert (${mode})`;
+          }
+
+          const created = a.createdAt ? new Date(a.createdAt).toLocaleString() : "—";
+
+          const c = document.createElement("div");
+          c.className = "card";
+
+          c.innerHTML = `
+            <div class="row">
+              <div>
+                <div class="title">🔔 ${escapeHtml(headline)}</div>
+                <div class="sub">${escapeHtml(line)}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:800;">${escapeHtml(String(target))}%</div>
+                <div class="sub">${escapeHtml(window)}</div>
+              </div>
+            </div>
+
+            <div class="kv">
+              <div class="muted">Type</div><div>${escapeHtml(mode)}</div>
+              <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
+              <div class="muted">Created</div><div>${escapeHtml(created)}</div>
+            </div>
+          `;
+
+          root.appendChild(c);
+        }
       }
 
       function renderSettings(root) {
