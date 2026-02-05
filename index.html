@@ -406,14 +406,21 @@
             gap:12px;
             margin-top:12px;
           ">
-            <div style="grid-column: span 2;">
+            <div style="grid-column: 1 / -1;">
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Symbol</div>
-              <input id="tokenSymInp" placeholder="BTC" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+              <input
+                id="tokenSymInp"
+                placeholder="BTC"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
+              />
             </div>
 
             <div>
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Type</div>
-              <select id="modeSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+              <select
+                id="modeSel"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
+              >
                 <option value="volatility">Volatility</option>
                 <option value="newsvol">News + Volatility</option>
               </select>
@@ -421,7 +428,10 @@
 
             <div>
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Window</div>
-              <select id="windowSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+              <select
+                id="windowSel"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
+              >
                 <option value="1h">1h</option>
                 <option value="6h">6h</option>
                 <option value="24h">24h</option>
@@ -430,18 +440,27 @@
 
             <div>
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Threshold (%)</div>
-              <input id="targetInp" type="number" min="0" step="0.1" value="5"
-                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+              <input
+                id="targetInp"
+                type="number"
+                min="0"
+                step="0.1"
+                value="5"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
+              />
             </div>
 
             <div>
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Currency</div>
-              <input id="currencyInp" value="${escapeHtml(currencyDefault)}"
-                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+              <input
+                id="currencyInp"
+                value="${escapeHtml(currencyDefault)}"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); box-sizing:border-box;"
+              />
             </div>
           </div>
 
-          <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <button class="btn" id="createAlertBtn" ${state.alertCreating ? "disabled" : ""} style="width:auto; padding:10px 14px;">
               ${state.alertCreating ? "Creating…" : "Create"}
             </button>
