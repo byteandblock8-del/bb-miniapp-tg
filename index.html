@@ -452,9 +452,14 @@
           del.style.marginTop = "10px";
           del.textContent = "Delete";
           del.addEventListener("click", async () => {
-            await deleteApi(`/api/alerts/${a.id}`);
-            state.alerts = await callApi("/api/alerts");
-            render();
+            try {
+              await callApi(`/api/alerts/${a.id}`, { method: "DELETE" });
+              state.alerts = await callApi("/api/alerts");
+              render();
+            } catch (e) {
+              state.saveMsg = "Delete failed ❌ (check Debug tab)";
+              render();
+            }
           });
           c.appendChild(del);
 
