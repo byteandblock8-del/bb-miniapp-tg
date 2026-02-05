@@ -6,62 +6,424 @@
     <title>Byte & Block Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-      body { font-family: system-ui, -apple-system, sans-serif; padding: 16px; }
-      .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-top: 12px; }
-      pre { white-space: pre-wrap; word-break: break-word; }
-      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; margin-right: 8px; margin-bottom: 8px; }
+      :root {
+        --bg: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --card: #ffffff;
+        --border: #e5e7eb;
+        --chip: #f3f4f6;
+        --accent: #111827;
+        --good: #16a34a;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        margin: 0;
+        padding: 16px;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      h1 {
+        font-size: 22px;
+        margin: 0 0 10px 0;
+      }
+
+      .top {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .pill {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .pill b { font-weight: 700; }
+      .muted { color: var(--muted); }
+
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 10px 0 12px 0;
+      }
+
+      .tab {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--chip);
+        cursor: pointer;
+        user-select: none;
+        font-weight: 600;
+      }
+
+      .tab.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 16px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .title {
+        font-weight: 800;
+        font-size: 16px;
+      }
+
+      .sub {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .kv {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 12px;
+        font-size: 14px;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: white;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .error {
+        color: #b91c1c;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
+      .code {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        color: #111827;
+        background: #f9fafb;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+        margin-top: 10px;
+      }
     </style>
   </head>
+
   <body>
-    <h2>Byte & Block Mini App</h2>
+    <h1>Byte & Block</h1>
 
-    <div class="card">
-      <div><b>Status:</b> <span id="status">Loading…</span></div>
-      <div><b>Platform:</b> <span id="platform"></span></div>
-    </div>
-
-    <div class="card">
-      <div style="margin-bottom: 10px;">
-        <button onclick="callApi('/api/me')">/api/me</button>
-        <button onclick="callApi('/api/portfolio')">/api/portfolio</button>
-        <button onclick="callApi('/api/alerts')">/api/alerts</button>
-        <button onclick="callApi('/api/settings')">/api/settings</button>
+    <div class="top">
+      <div class="pill">
+        <div>
+          <div><b>Status:</b> <span id="status">Loading…</span></div>
+          <div class="muted"><b>Platform:</b> <span id="platform"></span></div>
+          <div class="muted"><b>User ID:</b> <span id="uid">—</span></div>
+        </div>
+        <div style="margin-left:auto; text-align:right;">
+          <div style="font-weight:800; color:var(--good);">✅</div>
+          <div class="muted" style="font-size:12px;">connected</div>
+        </div>
       </div>
-      <pre id="out"></pre>
+
+      <button class="btn" id="refreshBtn">Refresh data</button>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="portfolio">Portfolio</div>
+        <div class="tab" data-tab="alerts">Alerts</div>
+        <div class="tab" data-tab="settings">Settings</div>
+        <div class="tab" data-tab="debug">Debug</div>
+      </div>
     </div>
+
+    <div id="content"></div>
 
     <script>
       const tg = window.Telegram?.WebApp;
 
-      document.getElementById("platform").textContent = tg ? tg.platform : "(not in Telegram)";
-      document.getElementById("status").textContent = tg ? "Running inside Telegram ✅" : "Not inside Telegram ❌";
+      const state = {
+        tab: "portfolio",
+        me: null,
+        portfolio: null,
+        alerts: null,
+        settings: null,
+        debug: "",
+      };
+
+      function fmtNumber(n, decimals = 4) {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return "—";
+        return x.toLocaleString(undefined, { maximumFractionDigits: decimals });
+      }
+
+      function fmtMoney(n, currency = "USD") {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return "—";
+        try {
+          return new Intl.NumberFormat(undefined, {
+            style: "currency",
+            currency,
+            maximumFractionDigits: 2,
+          }).format(x);
+        } catch {
+          return `${x.toFixed(2)} ${currency}`;
+        }
+      }
+
+      function setStatus() {
+        document.getElementById("platform").textContent = tg ? tg.platform : "(not in Telegram)";
+        document.getElementById("status").textContent = tg ? "Running inside Telegram ✅" : "Not inside Telegram ❌";
+      }
 
       async function callApi(path) {
-        const out = document.getElementById("out");
-
-        if (!tg) {
-          out.textContent = "Open this inside Telegram (as a Mini App).";
-          return;
-        }
+        if (!tg) throw new Error("Open this inside Telegram as a Mini App.");
 
         tg.ready();
         tg.expand();
 
         const initData = tg.initData;
-        if (!initData) {
-          out.textContent = "No initData available. Open via the bot Menu Button / Mini App.";
-          return;
-        }
-
-        out.textContent = `Calling ${path}…`;
+        if (!initData) throw new Error("No initData. Open via Bot menu button / configured Mini App.");
 
         const res = await fetch("https://api.byteandblock.com" + path, {
           headers: { "X-Telegram-Init-Data": initData },
         });
 
         const text = await res.text();
-        out.textContent = `HTTP ${res.status}\n\n${text}`;
+        state.debug = `GET ${path}\nHTTP ${res.status}\n\n${text}`;
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}\n\n${text}`);
+
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error("API returned non-JSON:\n\n" + text);
+        }
       }
+
+      function render() {
+        const el = document.getElementById("content");
+        el.innerHTML = "";
+
+        if (state.tab === "portfolio") {
+          renderPortfolio(el);
+        } else if (state.tab === "alerts") {
+          renderAlerts(el);
+        } else if (state.tab === "settings") {
+          renderSettings(el);
+        } else {
+          renderDebug(el);
+        }
+      }
+
+      function renderPortfolio(root) {
+        const data = state.portfolio?.portfolio;
+
+        if (!data) {
+          root.appendChild(card("No portfolio data yet.", "Tap Refresh data."));
+          return;
+        }
+
+        if (!Array.isArray(data) || data.length === 0) {
+          root.appendChild(card("Portfolio is empty.", "Use your bot to /add positions for now."));
+          return;
+        }
+
+        // Show each position as a card
+        for (const p of data) {
+          const name = p.name || p.symbol || "Unknown";
+          const symbol = p.symbol ? `(${p.symbol})` : "";
+          const currency = p.currency || (state.settings?.settings?.currency ?? "USD");
+
+          const c = document.createElement("div");
+          c.className = "card";
+
+          const head = document.createElement("div");
+          head.className = "row";
+          head.innerHTML = `
+            <div>
+              <div class="title">${escapeHtml(name)} ${escapeHtml(symbol)}</div>
+              <div class="sub">Token ID: ${escapeHtml(p.tokenId || "—")}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:800;">${fmtNumber(p.amount, 6)}</div>
+              <div class="sub">amount</div>
+            </div>
+          `;
+
+          const kv = document.createElement("div");
+          kv.className = "kv";
+          kv.innerHTML = `
+            <div class="muted">Avg entry</div><div>${fmtMoney(p.avgEntry, currency)}</div>
+            <div class="muted">Entry price</div><div>${fmtMoney(p.entryPrice, currency)}</div>
+            <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
+          `;
+
+          c.appendChild(head);
+          c.appendChild(kv);
+          root.appendChild(c);
+        }
+      }
+
+      function renderAlerts(root) {
+        const data = state.alerts?.alerts;
+
+        // Your screenshot shows alerts: {} (object), not []
+        // We'll support both shapes.
+        const isEmptyObject = data && typeof data === "object" && !Array.isArray(data) && Object.keys(data).length === 0;
+
+        if (!data || isEmptyObject || (Array.isArray(data) && data.length === 0)) {
+          root.appendChild(card("No alerts configured.", "Use /alert in the bot for now. We'll add UI actions later."));
+          return;
+        }
+
+        // If alerts come as array, show each
+        if (Array.isArray(data)) {
+          for (const a of data) {
+            root.appendChild(card("Alert", JSON.stringify(a)));
+          }
+          return;
+        }
+
+        // If alerts come as object map, show keys
+        const c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `<div class="title">Alerts (raw map)</div><div class="sub">We’ll format these once we confirm the exact structure.</div>`;
+        const pre = document.createElement("div");
+        pre.className = "code";
+        pre.textContent = JSON.stringify(data, null, 2);
+        c.appendChild(pre);
+        root.appendChild(c);
+      }
+
+      function renderSettings(root) {
+        const s = state.settings?.settings;
+        if (!s) {
+          root.appendChild(card("No settings loaded.", "Tap Refresh data."));
+          return;
+        }
+
+        const c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `
+          <div class="title">Settings</div>
+          <div class="sub">Read-only for now (we’ll add save buttons later).</div>
+          <div class="kv">
+            <div class="muted">Currency</div><div>${escapeHtml(s.currency || "USD")}</div>
+            <div class="muted">Exchange</div><div>${escapeHtml(s.exchange || "binance")}</div>
+          </div>
+        `;
+        root.appendChild(c);
+
+        root.appendChild(card("Next", "We’ll add dropdowns + Save that call POST endpoints (without touching bot logic)."));
+      }
+
+      function renderDebug(root) {
+        const c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `<div class="title">Debug</div><div class="sub">Last API response:</div>`;
+        const pre = document.createElement("div");
+        pre.className = "code";
+        pre.textContent = state.debug || "(nothing yet)";
+        c.appendChild(pre);
+        root.appendChild(c);
+      }
+
+      function card(title, subtitle) {
+        const c = document.createElement("div");
+        c.className = "card";
+        c.innerHTML = `<div class="title">${escapeHtml(title)}</div><div class="sub">${escapeHtml(subtitle || "")}</div>`;
+        return c;
+      }
+
+      function escapeHtml(str) {
+        return String(str ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      async function refreshAll() {
+        const btn = document.getElementById("refreshBtn");
+        btn.disabled = true;
+        btn.textContent = "Refreshing…";
+
+        try {
+          const me = await callApi("/api/me");
+          state.me = me;
+          document.getElementById("uid").textContent = me?.user?.id ?? "—";
+
+          // Load settings first (for currency display)
+          state.settings = await callApi("/api/settings");
+          state.portfolio = await callApi("/api/portfolio");
+          state.alerts = await callApi("/api/alerts");
+
+          btn.textContent = "Refresh data";
+          render();
+        } catch (err) {
+          btn.textContent = "Refresh data";
+          const root = document.getElementById("content");
+          root.innerHTML = "";
+          const c = document.createElement("div");
+          c.className = "card";
+          c.innerHTML = `<div class="title">Error</div><div class="error">${escapeHtml(err.message)}</div>`;
+          root.appendChild(c);
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      // Tabs
+      document.querySelectorAll(".tab").forEach((t) => {
+        t.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          state.tab = t.dataset.tab;
+          render();
+        });
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click", refreshAll);
+
+      setStatus();
+      // Auto-load once
+      refreshAll();
     </script>
   </body>
 </html>
