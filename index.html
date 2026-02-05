@@ -491,31 +491,52 @@
 
         root.appendChild(form);
 
-        form.querySelector("#tokenSymInp").addEventListener("input", () => {
-          form.querySelector("#tokenSymInp").classList.remove("input-invalid");
+        // --- Inline validation wiring (NO render()) ---
+        const symEl = form.querySelector("#tokenSymInp");
+        const msgEl = form.querySelector("#alertMsg");
+
+        function isValidSymbol(v) {
+          // 2–10 chars, A–Z / 0–9 only
+          return /^[A-Z0-9]{2,10}$/.test(String(v || "").trim().toUpperCase());
+        }
+
+        symEl.addEventListener("input", () => {
+          const v = symEl.value.trim().toUpperCase();
+
+          // empty => neutral
+          if (!v) {
+            symEl.classList.remove("input-invalid");
+            msgEl.textContent = "";
+            return;
+          }
+
+          if (!isValidSymbol(v)) {
+            symEl.classList.add("input-invalid");
+            msgEl.textContent = "Invalid symbol. Examples: BTC, ETH, SOL";
+          } else {
+            symEl.classList.remove("input-invalid");
+            msgEl.textContent = "";
+          }
         });
 
         // Wire create
         form.querySelector("#createAlertBtn").addEventListener("click", async () => {
-          const tokenSymbol = form.querySelector("#tokenSymInp").value.trim().toUpperCase();
-          const symEl = form.querySelector("#tokenSymInp");
-          symEl.classList.remove("input-invalid");
+          const tokenSymbol = symEl.value.trim().toUpperCase();
           const mode = form.querySelector("#modeSel").value;
           const window = form.querySelector("#windowSel").value;
           const target = Number(form.querySelector("#targetInp").value || 5);
           const currency = form.querySelector("#currencySel").value;
 
-          // Symbol must be short ticker-like (prevents "SOLANA", "BITCOIN", etc.)
-          if (!/^[A-Z0-9]{2,10}$/.test(tokenSymbol)) {
+          // validation (NO render())
+          if (!isValidSymbol(tokenSymbol)) {
             symEl.classList.add("input-invalid");
-            state.alertMsg = "Enter a valid symbol (BTC, ETH, SOL)";
-            render();
+            msgEl.textContent = "Invalid symbol. Examples: BTC, ETH, SOL";
             return;
           }
 
           state.alertCreating = true;
-          state.alertMsg = "";
-          render();
+          msgEl.textContent = "Creating…";
+          form.querySelector("#createAlertBtn").disabled = true;
 
           try {
             await callApi("/api/alerts", {
@@ -523,13 +544,15 @@
               body: { tokenSymbol, mode, window, target, currency },
             });
 
-            state.alertMsg = "Created ✅";
+            msgEl.textContent = "Created ✅";
+
             state.alerts = await callApi("/api/alerts");
+            render(); // refresh list AFTER showing success
           } catch (e) {
-            state.alertMsg = "Create failed ❌ (check Debug tab)";
+            msgEl.textContent = "Create failed ❌ (check Debug tab)";
           } finally {
             state.alertCreating = false;
-            render();
+            form.querySelector("#createAlertBtn").disabled = false;
           }
         });
 
