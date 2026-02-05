@@ -398,14 +398,10 @@
 
         form.innerHTML = `
           <div class="title">Create alert</div>
-          <div class="sub">Adds an alert (same store as the bot). For now, enter Token ID + Symbol manually.</div>
+          <div class="sub">Adds an alert (same store as the bot). Enter a token symbol (BTC, ETH, SOL).</div>
 
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px;">
-            <div>
-              <div class="muted" style="font-size:13px; margin-bottom:6px;">Token ID (CoinGecko)</div>
-              <input id="tokenIdInp" placeholder="bitcoin" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
-            </div>
-            <div>
+            <div style="grid-column: 1 / -1;">
               <div class="muted" style="font-size:13px; margin-bottom:6px;">Symbol</div>
               <input id="tokenSymInp" placeholder="BTC" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
             </div>
@@ -452,15 +448,15 @@
 
         // Wire create
         form.querySelector("#createAlertBtn").addEventListener("click", async () => {
-          const tokenId = form.querySelector("#tokenIdInp").value.trim();
           const tokenSymbol = form.querySelector("#tokenSymInp").value.trim().toUpperCase();
           const mode = form.querySelector("#modeSel").value;
           const window = form.querySelector("#windowSel").value;
           const target = Number(form.querySelector("#targetInp").value || 5);
           const currency = form.querySelector("#currencyInp").value.trim().toUpperCase() || "USD";
 
-          if (!tokenId || !tokenSymbol) {
-            state.alertMsg = "Token ID + Symbol required";
+          // Symbol must be short ticker-like (prevents "SOLANA", "BITCOIN", etc.)
+          if (!/^[A-Z0-9]{2,5}$/.test(tokenSymbol)) {
+            state.alertMsg = "Enter a valid symbol (BTC, ETH, SOL)";
             render();
             return;
           }
@@ -472,12 +468,10 @@
           try {
             await callApi("/api/alerts", {
               method: "POST",
-              body: { tokenId, tokenSymbol, mode, window, target, currency },
+              body: { tokenSymbol, mode, window, target, currency },
             });
 
             state.alertMsg = "Created ✅";
-
-            // refresh alerts
             state.alerts = await callApi("/api/alerts");
           } catch (e) {
             state.alertMsg = "Create failed ❌ (check Debug tab)";
