@@ -9,18 +9,24 @@
       body { font-family: system-ui, -apple-system, sans-serif; padding: 16px; }
       .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-top: 12px; }
       pre { white-space: pre-wrap; word-break: break-word; }
-      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
+      button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; margin-right: 8px; margin-bottom: 8px; }
     </style>
   </head>
   <body>
     <h2>Byte & Block Mini App</h2>
+
     <div class="card">
       <div><b>Status:</b> <span id="status">Loading…</span></div>
       <div><b>Platform:</b> <span id="platform"></span></div>
     </div>
 
     <div class="card">
-      <button id="btn">Call /api/me</button>
+      <div style="margin-bottom: 10px;">
+        <button onclick="callApi('/api/me')">/api/me</button>
+        <button onclick="callApi('/api/portfolio')">/api/portfolio</button>
+        <button onclick="callApi('/api/alerts')">/api/alerts</button>
+        <button onclick="callApi('/api/settings')">/api/settings</button>
+      </div>
       <pre id="out"></pre>
     </div>
 
@@ -30,37 +36,32 @@
       document.getElementById("platform").textContent = tg ? tg.platform : "(not in Telegram)";
       document.getElementById("status").textContent = tg ? "Running inside Telegram ✅" : "Not inside Telegram ❌";
 
-      async function callMe() {
+      async function callApi(path) {
         const out = document.getElementById("out");
 
         if (!tg) {
-          out.textContent = "Open this inside Telegram (as a Mini App) to get initData.";
+          out.textContent = "Open this inside Telegram (as a Mini App).";
           return;
         }
 
-        // Make Telegram UI behave nicely
         tg.ready();
         tg.expand();
 
-        const initData = tg.initData; // signed string
+        const initData = tg.initData;
         if (!initData) {
-          out.textContent = "No initData available. Are you opening this as a Mini App?";
+          out.textContent = "No initData available. Open via the bot Menu Button / Mini App.";
           return;
         }
 
-        out.textContent = "Calling API…";
+        out.textContent = `Calling ${path}…`;
 
-        const res = await fetch("https://api.byteandblock.com/api/me", {
-          headers: {
-            "X-Telegram-Init-Data": initData,
-          },
+        const res = await fetch("https://api.byteandblock.com" + path, {
+          headers: { "X-Telegram-Init-Data": initData },
         });
 
         const text = await res.text();
         out.textContent = `HTTP ${res.status}\n\n${text}`;
       }
-
-      document.getElementById("btn").addEventListener("click", callMe);
     </script>
   </body>
 </html>
