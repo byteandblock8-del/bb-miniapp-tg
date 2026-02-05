@@ -186,6 +186,8 @@
         saving: false,         // <-- NEW
         saveMsg: "",           // <-- NEW
         debug: "",
+        alertCreating: false,
+        alertMsg: "",
       };
 
       function fmtNumber(n, decimals = 4) {
@@ -386,30 +388,139 @@
       }
 
       function renderAlerts(root) {
-        const data = state.alerts?.alerts;
+        const data = state.alerts?.alerts || [];
+        const settings = state.settings?.settings || {};
+        const currencyDefault = settings.currency || "USD";
 
+        // --- Create form card ---
+        const form = document.createElement("div");
+        form.className = "card";
+
+        form.innerHTML = `
+          <div class="title">Create alert</div>
+          <div class="sub">Adds an alert (same store as the bot). For now, enter Token ID + Symbol manually.</div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px;">
+            <div>
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Token ID (CoinGecko)</div>
+              <input id="tokenIdInp" placeholder="bitcoin" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+            </div>
+            <div>
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Symbol</div>
+              <input id="tokenSymInp" placeholder="BTC" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+            </div>
+
+            <div>
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Type</div>
+              <select id="modeSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+                <option value="volatility">Volatility</option>
+                <option value="newsvol">News + Volatility</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Window</div>
+              <select id="windowSel" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);">
+                <option value="1h">1h</option>
+                <option value="6h">6h</option>
+                <option value="24h">24h</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Threshold (%)</div>
+              <input id="targetInp" type="number" min="0" step="0.1" value="5"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+            </div>
+
+            <div>
+              <div class="muted" style="font-size:13px; margin-bottom:6px;">Currency</div>
+              <input id="currencyInp" value="${escapeHtml(currencyDefault)}"
+                style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border);" />
+            </div>
+          </div>
+
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+            <button class="btn" id="createAlertBtn" ${state.alertCreating ? "disabled" : ""} style="width:auto; padding:10px 14px;">
+              ${state.alertCreating ? "Creating…" : "Create"}
+            </button>
+            <div class="muted" id="alertMsg" style="font-size:13px;">${escapeHtml(state.alertMsg || "")}</div>
+          </div>
+        `;
+
+        root.appendChild(form);
+
+        // Wire create
+        form.querySelector("#createAlertBtn").addEventListener("click", async () => {
+          const tokenId = form.querySelector("#tokenIdInp").value.trim();
+          const tokenSymbol = form.querySelector("#tokenSymInp").value.trim().toUpperCase();
+          const mode = form.querySelector("#modeSel").value;
+          const window = form.querySelector("#windowSel").value;
+          const target = Number(form.querySelector("#targetInp").value || 5);
+          const currency = form.querySelector("#currencyInp").value.trim().toUpperCase() || "USD";
+
+          if (!tokenId || !tokenSymbol) {
+            state.alertMsg = "Token ID + Symbol required";
+            render();
+            return;
+          }
+
+          state.alertCreating = true;
+          state.alertMsg = "";
+          render();
+
+          try {
+            await callApi("/api/alerts", {
+              method: "POST",
+              body: { tokenId, tokenSymbol, mode, window, target, currency },
+            });
+
+            state.alertMsg = "Created ✅";
+
+            // refresh alerts
+            state.alerts = await callApi("/api/alerts");
+          } catch (e) {
+            state.alertMsg = "Create failed ❌ (check Debug tab)";
+          } finally {
+            state.alertCreating = false;
+            render();
+          }
+        });
+
+        // --- Existing alerts list ---
         if (!Array.isArray(data) || data.length === 0) {
-          root.appendChild(card("No alerts configured.", "Use /alert in the bot for now."));
+          root.appendChild(card("No alerts configured.", "Create one above, or use /alert in the bot."));
           return;
         }
 
         for (const a of data) {
           const sym = a.tokenSymbol || "—";
           const mode = a.mode || "—";
+          const modeLabel =
+            mode === "volatility" ? "Volatility" :
+            mode === "newsvol" ? "News + Volatility" :
+            mode;
+
           const target = (a.target != null) ? a.target : "—";
           const window = a.window || "—";
-          const currency = a.currency || (state.settings?.settings?.currency ?? "USD");
+          const currency = a.currency || currencyDefault;
+
+          let line = "";
+          if (mode === "newsvol") line = `${sym} moves more than ${target}% in ${window} with a news spike`;
+          else if (mode === "volatility") line = `${sym} moves more than ${target}% in ${window}`;
+          else line = `${sym} alert (${mode})`;
+
           const created = a.createdAt ? new Date(a.createdAt).toLocaleString() : "—";
 
           const c = document.createElement("div");
           c.className = "card";
 
-          // 1) set innerHTML FIRST
+          // IMPORTANT: set innerHTML first, then append the button (otherwise it gets wiped)
           c.innerHTML = `
             <div class="row">
               <div>
-                <div class="title">🔔 Alert for ${escapeHtml(sym)}</div>
-                <div class="sub">${escapeHtml(sym)} moves more than ${escapeHtml(String(target))}% in ${escapeHtml(window)}</div>
+                <div class="title">🔔 ${escapeHtml(`Alert for ${sym}`)}</div>
+                <div class="sub">${escapeHtml(line)}</div>
               </div>
               <div style="text-align:right;">
                 <div style="font-weight:800;">${escapeHtml(String(target))}%</div>
@@ -418,33 +529,29 @@
             </div>
 
             <div class="kv">
-              <div class="muted">Type</div><div>${escapeHtml(mode)}</div>
+              <div class="muted">Type</div><div>${escapeHtml(modeLabel)}</div>
               <div class="muted">Currency</div><div>${escapeHtml(currency)}</div>
               <div class="muted">Created</div><div>${escapeHtml(created)}</div>
             </div>
           `;
 
-          // 2) THEN append the button
           const del = document.createElement("button");
           del.className = "btn";
           del.style.marginTop = "10px";
           del.textContent = "Delete";
-
           del.addEventListener("click", async () => {
-            state.debug = `DELETE /api/alerts/${a.id}\n(click received)`;
-            render(); // so you can see immediately that the click fired
-
             try {
+              state.alertMsg = "";
               await callApi(`/api/alerts/${a.id}`, { method: "DELETE" });
               state.alerts = await callApi("/api/alerts");
               render();
             } catch (e) {
-              state.debug += `\n\nDelete failed:\n${e?.message || e}`;
+              state.alertMsg = "Delete failed ❌ (check Debug tab)";
               render();
             }
           });
-
           c.appendChild(del);
+
           root.appendChild(c);
         }
       }
