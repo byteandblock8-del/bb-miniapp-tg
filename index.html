@@ -251,6 +251,38 @@
         }
       }
 
+      async function postApi(path, body) {
+        if (!tg) throw new Error("Open this inside Telegram as a Mini App.");
+        const initData = tg.initData;
+        const res = await fetch("https://api.byteandblock.com" + path, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-Init-Data": initData,
+          },
+          body: JSON.stringify(body || {}),
+        });
+
+        const text = await res.text();
+        state.debug = `POST ${path}\nHTTP ${res.status}\n\n${text}`;
+        if (!res.ok) throw new Error(`HTTP ${res.status}\n\n${text}`);
+        return JSON.parse(text);
+      }
+
+      async function deleteApi(path) {
+        if (!tg) throw new Error("Open this inside Telegram as a Mini App.");
+        const initData = tg.initData;
+        const res = await fetch("https://api.byteandblock.com" + path, {
+          method: "DELETE",
+          headers: { "X-Telegram-Init-Data": initData },
+        });
+
+        const text = await res.text();
+        state.debug = `DELETE ${path}\nHTTP ${res.status}\n\n${text}`;
+        if (!res.ok) throw new Error(`HTTP ${res.status}\n\n${text}`);
+        return JSON.parse(text);
+      }
+
       async function callPublic(path) {
         const res = await fetch("https://api.byteandblock.com" + path);
         const text = await res.text();
@@ -395,6 +427,17 @@
 
           const c = document.createElement("div");
           c.className = "card";
+
+          const del = document.createElement("button");
+          del.className = "btn";
+          del.style.marginTop = "10px";
+          del.textContent = "Delete";
+          del.addEventListener("click", async () => {
+            await deleteApi(`/api/z(alerts/${a.id}`); // <-- replace Z with nothing
+            state.alerts = await callApi("/api/alerts");
+            render();
+          });
+          c.appendChild(del);
 
           c.innerHTML = `
             <div class="row">
